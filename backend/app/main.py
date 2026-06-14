@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,7 +9,7 @@ from app.routers import appointments, customers, dashboard, inspections, procure
 
 app = FastAPI(
     title=settings.app_name,
-    version="1.0.0",
+    version=settings.app_version,
     description="Decoration company project management API",
 )
 
@@ -28,5 +30,13 @@ app.include_router(inspections.router)
 
 
 @app.get("/api/health", tags=["health"])
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+def health_check() -> dict:
+    return {
+        "status": "ok",
+        "component": settings.app_component,
+        "version": settings.app_version,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "checks": {
+            "self": "ok",
+        },
+    }

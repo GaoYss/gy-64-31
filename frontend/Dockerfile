@@ -13,10 +13,11 @@ RUN npm run build
 
 FROM nginx:1.27-alpine
 
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget nginx-mod-http-js
 
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY health.js /etc/nginx/health.js
 
 EXPOSE 80
 
