@@ -139,8 +139,7 @@ http://localhost:3000, http://127.0.0.1:3000
 │   │   └── pages         # 业务页面
 │   ├── .env.example      # 前端配置项模板
 │   ├── Dockerfile
-│   ├── health.js         # Nginx njs 健康检查脚本
-│   ├── nginx.conf        # 容器部署 Nginx 主配置（含代理 + 健康检查）
+│   ├── nginx.conf        # 容器部署 Nginx 配置（含代理 + 健康检查，纯原生指令无 njs 依赖）
 │   └── vite.config.js    # 本地开发 Vite 配置（含代理 + 健康检查中间件）
 ├── docker-compose.yml
 └── README.MD
@@ -269,7 +268,7 @@ npm run preview
 | 阶段 | 基础镜像 | 作用 |
 |------|---------|------|
 | build | `node:22-alpine` | 安装依赖并执行 `npm run build`，注入 `VITE_API_BASE_URL` 构建参数 |
-| runtime | `nginx:1.27-alpine` | 仅拷贝 `dist/`、主配置 `nginx.conf`、njs 脚本 `health.js`；安装 `wget`（健康检查用）和 `nginx-mod-http-js`（聚合健康检查用） |
+| runtime | `nginx:1.27-alpine` | 仅拷贝 `dist/` 和配置 `nginx.conf`；安装 `wget`（容器健康检查用）；使用 Docker 内部 DNS 动态解析后端服务名 |
 
 ```bash
 # 单独构建前端镜像
@@ -306,7 +305,7 @@ docker build -t decoration-pm-backend:latest ./backend
 ### 前端健康检查（Nginx / Vite）
 
 - **端点**：`GET /health`
-- **实现**：容器侧 `frontend/health.js` + `frontend/nginx.conf`；本地侧 `frontend/vite.config.js` 中间件
+- **实现**：容器侧 `frontend/nginx.conf` 原生 `return` 指令；本地侧 `frontend/vite.config.js` 中间件
 - **component**：`frontend`
 - **说明**：不依赖后端，直接返回，专门用于判断前端进程/Nginx 是否存活
 - **容器触发频率**：每 15s，超时 5s，连续 3 次失败标记 unhealthy，启动宽限期 10s
@@ -316,9 +315,12 @@ docker build -t decoration-pm-backend:latest ./backend
 
 - **端点**：`GET /health/full`
 - **component**：`frontend`
-- **逻辑**：前端先确认自身 OK，再子请求后端 `/api/health`，将两者结果合并返回
+- **实现**：
+  - 本地侧（Vite）：`frontend/vite.config.js` 中间件先返回前端健康信息，再异步 fetch 后端 `/api/health`，合并后返回
+  - 容器侧（Nginx）：proxy_pass 到后端 `/health/full` 聚合端点（后端生成与本地 Vite 完全一致的 JSON 格式）；后端不可达时通过 `error_page` 返回降级响应
 - **状态码**：始终 200；通过 `status` 字段区分（`ok` = 全正常，`degraded` = 前端 OK 但后端不可达）
 - **失败详情**：后端不可达时，`backend.error` 字段含具体错误信息
+- **格式一致性**：本地和容器返回的 JSON 结构完全相同（`status/component/version/timestamp/checks/backend`）
 
 ### 启动依赖保障
 

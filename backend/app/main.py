@@ -40,3 +40,24 @@ def health_check() -> dict:
             "self": "ok",
         },
     }
+
+
+FRONTEND_VERSION = "1.0.0"
+FRONTEND_COMPONENT = "frontend"
+
+
+@app.get("/health/full", tags=["health"])
+def health_full() -> dict:
+    ts = datetime.now(timezone.utc).isoformat()
+    backend_health = health_check()
+    return {
+        "status": "ok",
+        "component": FRONTEND_COMPONENT,
+        "version": FRONTEND_VERSION,
+        "timestamp": ts,
+        "checks": {
+            "self": "ok",
+            "backend": "ok",
+        },
+        "backend": backend_health,
+    }

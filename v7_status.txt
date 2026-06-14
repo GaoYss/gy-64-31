@@ -1,0 +1,2 @@
+decoration-pm-backend|Up 11 seconds (healthy)
+decoration-pm-frontend|Up 4 seconds (health: starting)
